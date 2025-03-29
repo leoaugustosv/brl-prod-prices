@@ -1,8 +1,13 @@
-# Custom
+# Custom folders
 env/
 venv/
 metastore_db/
 spark-warehouse/
+
+# Custom files
+src/bs4_tester.py
+src/temp_query.py
+src/pytester_.py
 
 
 # Byte-compiled / optimized / DLL files
@@ -56,5 +61,4 @@ coverage.xml
 
 # Sphinx documentation
 docs/_build/
-src/bs4_tester.py
-src/temp_query.py
+

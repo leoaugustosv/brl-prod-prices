@@ -12,7 +12,6 @@ def main():
 
 
     spark = create_spark_session()
-    # browser = sl.init_browser()
 
     seller_instances = get_sellers(sellers_params)
     get_sellers_products(spark, sellers=seller_instances, limit=PRODUCTS_LIMIT, fetch_categories=True)
