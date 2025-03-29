@@ -16,7 +16,7 @@ sellers_params = [
         "categories" : [{
             "Cata-Pechincha":"https://www.zoom.com.br/cata-pechincha"
         }],
-        "active": False,
+        "active": True,
         
     },
 
@@ -27,7 +27,7 @@ sellers_params = [
             ["https://www.magazineluiza.com.br/", 0]
         ],
         "categories" : [],
-        "active": False,
+        "active": True,
     },
 
     {
