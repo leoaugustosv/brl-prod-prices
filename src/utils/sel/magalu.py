@@ -110,6 +110,7 @@ def get_product_prices(browser, category_list, product_id, limit:int = None):
                                     .replace("R$\xa0","")
                                     .replace(".","")
                                     .replace(",",".")
+                                    .replace("no Cartão Magalu","")
                                     .strip()
                                 )
                             except Exception as e:
