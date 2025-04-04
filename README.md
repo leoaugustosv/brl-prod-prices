@@ -22,6 +22,10 @@ Um ETL de sites de e-commerce brasileiros.
 - Pandas
 - delta-spark
 
+### Opcional
+
+- ipykernel (Fornece kernel para executar notebooks Jupyter)
+
 Demais dependências atualizadas constam no arquivo ```requirements.txt```.
 
 ## Características
@@ -38,7 +42,7 @@ Demais dependências atualizadas constam no arquivo ```requirements.txt```.
 
 ### Cons
 
-- **Requer manutenção na extração:** Novas mudanças na estrutura do site de cada seller pode necessitar de manutenção na forma como os dados são capturados e calculados.
+- **Requer manutenção na extração:** Novas mudanças na estrutura do site de cada seller podem exigir manutenção na forma como os dados são capturados e calculados.
 - **Velocidade:** Por simular a ação humana de navegar por cada categoria, aumenta exponencialmente o tempo para extrair os dados conforme o número de categorias que um seller possui.
 - **Processo local**: Por rodar localmente (por enquanto), carece de alta disponibilidade, escalabilidade e outras vantagens que uma núvem pública oferece.
 
