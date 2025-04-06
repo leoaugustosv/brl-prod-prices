@@ -8,9 +8,14 @@ from utils.sel import magalu as mgl
 from utils.sel import mercadolivre as meli
 
 from concurrent.futures import ThreadPoolExecutor
+from datetime import date
+import uuid
 
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DoubleType, ArrayType, MapType
-from parameters.general_parameters import DATABASE_NAME, BRONZE_PRODUCTS_TABLE, BRONZE_SELLERS_TABLE
+import pyspark.sql.functions as F
+import pyspark.sql.window as W
+
+from parameters.general_parameters import DATABASE_NAME, BRONZE_PRODUCTS_TABLE, BRONZE_SELLERS_TABLE, SILVER_LAST_VER_PRODUCTS_TABLE, SILVER_CATALOG_PRODUCTS_TABLE
 
 
 
@@ -227,7 +232,140 @@ def ingest_sellers_table(spark, sellers):
     try:
         save_table(spark, df, path=f"{DATABASE_NAME}.{BRONZE_SELLERS_TABLE}", partition_column="dt_refe_crga", mode="overwrite", schema_option="merge")
     except Exception as e:
-        print("ERROR", e)
+        print("ERROR: ", e)
 
     return df
 
+
+def ingest_silver_products_catalog(spark, bronze_path):
+
+    # informative
+    schema = StructType([
+        StructField("ID_ORIGIN", StringType(), False),
+        StructField("NM_PRODUCT", StringType(), True),
+        StructField("DS_URL", StringType(), True),
+        StructField("DS_IMG", StringType(), True),
+        StructField("ID_CATALOG", StringType(), True),
+    ])
+
+    bronze_df = read_table(spark, bronze_path, last_part_only=False, return_empty_df_if_missing=True)
+
+    if bronze_df.isEmpty():
+        print(f"SILVER: No partition found for table {bronze_path}. Aborting products catalog silver ingestion...")
+        return
+    else:
+        try:
+            window_spec = W.Window.partitionBy(F.col("url")).orderBy(F.col("dh_exec").desc())
+
+
+            silver_df = (
+                bronze_df
+                .withColumn("rank", F.row_number().over(window_spec))
+                .filter(F.col("rank") == 1)
+                .selectExpr(
+                    "id as ID_ORIGIN",
+                    "name as NM_PRODUCT",
+                    "seller as NM_SELLER",
+                    "url as DS_URL",
+                    "img as DS_IMG"
+                )
+                .withColumn("ID_CATALOG", F.concat_ws("-",F.substring(F.col("NM_SELLER"), 1, 4), F.expr("uuid()")))
+                .withColumn("dt_refe_crga", F.current_date().cast('string'))
+                .withColumn("dh_exec", F.current_timestamp())
+            )
+
+            silver_df.show()
+
+            save_table(spark, silver_df, path=f"{DATABASE_NAME}.{SILVER_CATALOG_PRODUCTS_TABLE}", partition_column="dt_refe_crga", mode="overwrite", schema_option="merge")
+        except Exception as e:
+            print("ERROR: ", e)
+            
+    return silver_df
+
+
+
+def ingest_silver_last_ver_products(spark, bronze_path, ignore_delay = False):
+
+    df = read_table(spark, bronze_path, return_empty_df_if_missing=True)
+    
+
+    if df.isEmpty():
+        print(f"SILVER: No partition found for table {bronze_path}. Aborting unique products silver ingestion...")
+        return
+    
+    else:
+        try:
+            window_spec = W.Window.partitionBy(F.col("url")).orderBy(F.col("dh_exec").desc())
+
+            part_name = spark.sql(f"DESCRIBE DETAIL {f'{bronze_path}'}").selectExpr("partitionColumns").collect()[0][0][0]
+            last_parts = spark.read.table(bronze_path).selectExpr(f"max({part_name})").collect()[0]
+
+
+            today = str(date.today())
+
+
+            if ignore_delay:
+                aim_partition = last_parts[0]
+            else:
+                ### By default reading with minimum D-1 delay
+                if last_parts[0] == today and len(last_parts) > 1:
+                    aim_partition = last_parts[1]
+                else:
+                    aim_partition = last_parts[0]
+
+            print(f"SILVER: Reading from bronze products table partition {aim_partition}...")
+
+            catalog_df = (
+                read_table(spark, path=f"{DATABASE_NAME}.{SILVER_CATALOG_PRODUCTS_TABLE}" ,last_part_only=True, return_empty_df_if_missing=True)
+                .selectExpr(
+                    "ID_CATALOG",
+                    "DS_URL"
+                )
+                .distinct()
+            )
+
+            silver_df = (
+                df
+                .filter(F.col(part_name) == aim_partition)
+                .withColumn("rank", F.row_number().over(window_spec))
+                .filter(F.col("rank") == 1)
+                .selectExpr(
+                    "id as ID_ORIGIN",
+                    "name as NM_PRODUCT",
+                    "url as DS_URL",
+                    "img as DS_IMG",
+                    "category as DS_CATEGORY",
+                    "price_in_cash as VL_CASH",
+                    "price_in_installments as VL_INSTALLMENTS",
+                    "installments_num as NR_INSTALLMENTS",
+                    "installment_value as VL_SINGLE_INSTALLMENT",
+                    "seller as NM_SELLER",
+                    "rating as VL_RATING" ,
+                    "rating_users as QT_RATING_USERS",
+                    "position as NR_POSITION",                    
+                )
+            )
+
+            if catalog_df.isEmpty():
+                silver_df = (
+                    silver_df.withColumn("ID_CATALOG", F.lit(None).cast("string"))
+                )
+            else:
+                silver_df = (
+                    silver_df.join(catalog_df, "DS_URL", "left")
+                )
+
+            silver_df = (
+                silver_df
+                .withColumn("dt_refe_crga", F.current_date().cast('string'))
+                .withColumn("dh_exec", F.current_timestamp())
+            )
+            
+
+            silver_df.show()
+
+            save_table(spark, silver_df, path=f"{DATABASE_NAME}.{SILVER_LAST_VER_PRODUCTS_TABLE}", partition_column="dt_refe_crga", mode="overwrite", schema_option="merge")
+        except Exception as e:
+            print("ERROR: ", e)
+
+        return silver_df
