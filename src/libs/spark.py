@@ -9,27 +9,40 @@ from pyspark.sql.types import StructType
 import os
 
 
+def get_root_path(starting_path:str = None):
+    if starting_path:
+        current = starting_path
+    else:
+        current = os.getcwd()
 
-delta_jars_path = f'{os.getcwd()}\\src\\libs\\delta-spark\\delta-hive-assembly_2.13-3.3.0.jar'
-python_path = f'{os.getcwd()}\\venv\\Scripts\\python.exe'
-os.environ["PYSPARK_PYTHON"] = python_path
-os.environ["PYSPARK_DRIVER_PYTHON"] = python_path
+    path_limit = 0
+
+    while path_limit < 3:
+        if not "rootfile" in os.listdir(current):
+            current = os.path.dirname(current)
+            path_limit += 1
+        else:
+            return current
+    raise RuntimeError("ERROR: Unable to find rootpath. Check if rootfile exists.")
+    
 
 
 def create_spark_session(create_hive_db = True, app_name:str = "default") -> SparkSession:
 
-
     # Setting WareHouse Folder
     if not WAREHOUSE_LOCATION_PARAM:
-        warehouse_location = f'{os.getcwd()}\\spark-warehouse'
+
+        warehouse_location = f'{get_root_path()}'
     else:
         warehouse_location = WAREHOUSE_LOCATION_PARAM
+    warehouse_location = warehouse_location.replace("\\","\\\\")
     print(f"HIVE: Warehouse location: {warehouse_location}")
     
     if not os.path.exists(warehouse_location):
             print(f"HIVE: Warehouse location does not exists yet. Creating {warehouse_location} folder...")
             os.makedirs(warehouse_location)
 
+    
 
     builder = (
         SparkSession.builder
@@ -38,6 +51,7 @@ def create_spark_session(create_hive_db = True, app_name:str = "default") -> Spa
         .config("spark.sql.session.timeZone", "-03:00") # TimeZone
 
         .config("spark.sql.warehouse.dir", warehouse_location) # Warehouse location
+        .config('spark.driver.extraJavaOptions',f'-Dderby.system.home={warehouse_location}')
         
         # Enable Delta Spark
         .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") 
@@ -70,6 +84,7 @@ def create_spark_session(create_hive_db = True, app_name:str = "default") -> Spa
     return spark_session
 
 
+
 def read_table(spark, path, last_part_only=False, return_empty_df_if_missing = False):
     try:
         if last_part_only == True:
@@ -100,7 +115,8 @@ def read_unregistered_table(spark, path, last_part_only=False, part_name=None):
 
     if last_part_only == True:
 
-        last_part = spark.sql(f"DESCRIBE DETAIL {f'{path}'}").selectExpr("partitionColumns").collect()[0][0][0]
+        part_name = spark.sql(f"DESCRIBE DETAIL {f'{path}'}").selectExpr("partitionColumns").collect()[0][0][0]
+        last_part = spark.read.table(path).selectExpr(f"max({part_name})").collect()[0][0]
         
         df = (
             spark.read.format("delta").load(path)
@@ -149,7 +165,7 @@ def create_database(spark, name):
         if not spark.sql("SHOW DATABASES").filter(F.col("namespace") == name).isEmpty():
             print(f"DATABASE: Database {name} found.")
         else:
-            print(f"DATABASE: Database {name} not found. Creating database in path {os.getcwd()}\\spark-warehouse\\{name}.db")
+            print(f"DATABASE: Database {name} not found. Creating database in path {get_root_path()}\\spark-warehouse\\{name}.db")
             spark.sql(f"create database if not exists {name}")
             print(f"DATABASE: Database {name} created sucessfully.")
     except Exception as e:
@@ -274,7 +290,7 @@ def dataframe_to_parquet(df, parquet_name):
 def check_csv_path():
     # Setting CSV Folder
     if not CSV_PATH:
-        csv_location = f'{os.getcwd()}\\excel'
+        csv_location = f'{get_root_path()}\\excel'
     else:
         csv_location = CSV_PATH
     print(f"EXCEL: CSV folder location: {csv_location}")
@@ -287,7 +303,7 @@ def check_csv_path():
 def check_parquet_path():
     # Setting PARQUET Folder
     if not PARQUET_PATH:
-        parquet_location = f'{os.getcwd()}\\parquet'
+        parquet_location = f'{get_root_path()}\\parquet'
     else:
         parquet_location = PARQUET_PATH
     print(f"PARQUET: Parquet folder location: {parquet_location}")
@@ -311,9 +327,9 @@ def clear_unused_output_files(filetype:str, folder_name:str, path = None):
         
         if not path:
             if filetype == "parquet":
-                path = f"{os.getcwd()}\\parquet\\{folder_name}"
+                path = f"{get_root_path()}\\parquet\\{folder_name}"
             elif filetype == "csv":
-                path = f"{os.getcwd()}\\excel\\{folder_name}"
+                path = f"{get_root_path()}\\excel\\{folder_name}"
 
         files_in_dir = os.listdir(path)
         for f in files_in_dir:
