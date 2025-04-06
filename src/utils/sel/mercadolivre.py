@@ -174,9 +174,29 @@ def get_product_prices(browser, category_list, product_id, limit:int = None):
 
                         try:
                             img_tag = product.find("img", {"class": "poly-component__picture"})
-                            img = img_tag["src"] if img_tag else None
+
+                            if img_tag:
+                                try:
+                                    img_src = img_tag["src"]
+                                except:
+                                    img_src = None
+                                    pass
+                                try:
+                                    img_data_src = img_tag["data-src"]
+                                except:
+                                    img_data_src = None
+                                    pass
+
+                            if img_tag and img_src.startswith("data:image"):
+                                img = img_data_src
+                            elif img_tag and not img_src.startswith("data:image"):
+                                img = img_src
+                            else:
+                                img = None
+                            
                         except Exception as e:
                             print(f"{seller_name} Product Cards Tag Error (IMG): {e}")
+                            img = None
 
                         try:
                             rating = product.find("div", {"class": "poly-component__reviews"})
@@ -202,6 +222,7 @@ def get_product_prices(browser, category_list, product_id, limit:int = None):
                         except Exception as e:
                             print(f"{seller_name} Product Cards Tag Error (RATING): {e}")
 
+                        pos_counter += 1
 
                         try:
                             product_instances.append(
