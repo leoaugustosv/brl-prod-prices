@@ -29,59 +29,62 @@ def get_root_path(starting_path:str = None):
 
 def create_spark_session(create_hive_db = True, app_name:str = "default") -> SparkSession:
 
-    # Setting WareHouse Folder
-    if not WAREHOUSE_LOCATION_PARAM:
+    try: 
+        # Setting WareHouse Folder
+        if not WAREHOUSE_LOCATION_PARAM:
 
-        warehouse_location = f'{get_root_path()}'
-    else:
-        warehouse_location = WAREHOUSE_LOCATION_PARAM
-    warehouse_location = warehouse_location.replace("\\","\\\\")
-    print(f"HIVE: Warehouse location: {warehouse_location}")
-    
-    if not os.path.exists(warehouse_location):
-            print(f"HIVE: Warehouse location does not exists yet. Creating {warehouse_location} folder...")
-            os.makedirs(warehouse_location)
-
-    
-
-    builder = (
-        SparkSession.builder
-        .appName(app_name)
-        .config("spark.driver.memory", "8g") # Memory
-        .config("spark.sql.session.timeZone", "-03:00") # TimeZone
-
-        .config("spark.sql.warehouse.dir", warehouse_location) # Warehouse location
-        .config('spark.driver.extraJavaOptions',f'-Dderby.system.home={warehouse_location}')
+            warehouse_location = f'{get_root_path()}'
+        else:
+            warehouse_location = WAREHOUSE_LOCATION_PARAM
+        warehouse_location = warehouse_location.replace("\\","\\\\")
+        print(f"HIVE: Warehouse location: {warehouse_location}")
         
-        # Enable Delta Spark
-        .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") 
-        .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
+        if not os.path.exists(warehouse_location):
+                print(f"HIVE: Warehouse location does not exists yet. Creating {warehouse_location} folder...")
+                os.makedirs(warehouse_location)
 
-        # Force Delta V1 Partitioning
-        .config("spark.sql.sources.partitionOverwriteMode", "dynamic")
-
-        # Enable schema automerge
-        .config("spark.databricks.delta.schema.autoMerge.enabled", "true")
-
-        # Disable appendOnly by default
-        .config("spark.databricks.delta.properties.defaults.appendOnly", "false")
-
-        #Enable Hive
-        .config("spark.sql.catalogImplementation", "hive")
-        .enableHiveSupport()
-    )
-
-    spark_session = configure_spark_with_delta_pip(builder).getOrCreate()
-    print(f"SPARK: Spark Session started. Spark Version: {spark_session.version}")
     
-    # ERROR for supressing warnings, DEBUG to show warnings
-    spark_session.sparkContext.setLogLevel("ERROR")
 
-    # Creating database to persist infos in Hive Metastore
-    if create_hive_db:
-        create_database(spark_session, DATABASE_NAME)
+        builder = (
+            SparkSession.builder
+            .appName(app_name)
+            .config("spark.driver.memory", "8g") # Memory
+            .config("spark.sql.session.timeZone", "-03:00") # TimeZone
 
-    return spark_session
+            .config("spark.sql.warehouse.dir", warehouse_location) # Warehouse location
+            .config('spark.driver.extraJavaOptions',f'-Dderby.system.home={warehouse_location}')
+            
+            # Enable Delta Spark
+            .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") 
+            .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
+
+            # Force Delta V1 Partitioning
+            .config("spark.sql.sources.partitionOverwriteMode", "dynamic")
+
+            # Enable schema automerge
+            .config("spark.databricks.delta.schema.autoMerge.enabled", "true")
+
+            # Disable appendOnly by default
+            .config("spark.databricks.delta.properties.defaults.appendOnly", "false")
+
+            #Enable Hive
+            .config("spark.sql.catalogImplementation", "hive")
+            .enableHiveSupport()
+        )
+
+        spark_session = configure_spark_with_delta_pip(builder).getOrCreate()
+        print(f"SPARK: Spark Session started. Spark Version: {spark_session.version}")
+        
+        # ERROR for supressing warnings, DEBUG to show warnings
+        spark_session.sparkContext.setLogLevel("ERROR")
+
+        # Creating database to persist infos in Hive Metastore
+        if create_hive_db:
+            create_database(spark_session, DATABASE_NAME)
+
+        return spark_session
+    except Exception as e:
+        print(f"SPARK_ERROR: {e}")
 
 
 
@@ -101,12 +104,14 @@ def read_table(spark, path, last_part_only=False, return_empty_df_if_missing = F
             df = (
                 spark.read.table(path)
             )
-    except AnalysisException:
+    except AnalysisException as e:
         if return_empty_df_if_missing:
-            print(f"Table {path} not found. Returning empty dataframe...")
+            print(f"TABLE_OPERATION: Table {path} not found. Returning empty dataframe...")
             df = spark.createDataFrame([], schema=StructType([]))
         else:
-            raise
+            raise AnalysisException(f"TABLE_OPERATION: AnalysisException ocurred ({e}). Consider enabling empty df return to deal specifically with this Exception.")
+    except Exception as e:
+        raise Exception(f"ERROR: {e}")
  
     return df
 
@@ -196,7 +201,7 @@ def clear_partition(spark, path, target_partition:str = None, last_partition = F
                     target_partition = spark.read.table(path).selectExpr(f"max({part_name})").collect()[0][0]
 
                 spark.sql(f"delete from {path} where {part_name} = {target_partition}")
-                print(f"TABLE_OPERATION: Partition {part_name} ({target_partition}) from table {path} cleared sucessfully.")
+                print(f"TABLE_OPERATION: Partition {part_name} ({target_partition}) from table {path} cleared successfully.")
             else:
                 print(f"TABLE_OPERATION: No data has been deleted, as no partition was found for table {path}.")
     except Exception as e:
@@ -235,16 +240,16 @@ def save_table(spark, df, path:str, partition_column:str=None, mode="append", sc
                     clear_partition(spark, path, target_partition=part)
                     spark.sql(f"""
                         INSERT INTO {path}
-                        SELECT * FROM dataframe WHERE {partition_column} = {part}
+                        SELECT * FROM dataframe WHERE {partition_column} = '{part}'
                     """)
-                print(f"TABLE_OPERATION: Table {mode} saved successfully at {path}.")
+                print(f"TABLE_OPERATION: Table {mode} saved successfully at {path}. Partitions overwritten: {partitions_in_df}")
             except Exception as e:
                 print(f"TABLE_OPERATION: SAVE_TABLE ERROR - {e}")
                 
             return
             
     else:
-        raise("Save table mode not supported. Please check supported modes and try again.")    
+        raise Exception("Save table mode not supported. Please check supported modes and try again.")    
 
 
     if schema_option == "merge":
