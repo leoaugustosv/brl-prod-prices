@@ -9,11 +9,11 @@ Um ETL de sites de e-commerce brasileiros.
 2. Transformar as informações extraídas em dataframes com dados relevantes [nome, preço, url, avaliações, etc] - **```(100%)```**.
 3. Ingestar os dataframes obtidos em tabelas delta locais bronze, particionadas por data [Products, Sellers] - **```(100%)```**.
 4. Possibilitar export de partições das tabelas delta para arquivos únicos [ATUALMENTE: CSV, Parquet] - **```(100%)```**.
-5. Ingestar tabela silver com um id único para cada produto, usando a chave URL - **(100%)**.
-6. Ingestar tabela silver com a última versão de cada produto por partição, usando a chave URL - **(100%)**.
-7. Ingestar tabela silver com a última versão de cada categoria, usando a chave URL - **(0%)**.
+5. Ingestar tabela silver com um id único para cada produto, usando a chave URL - **```(100%)```**.
+6. Ingestar tabela silver com a última versão de cada produto por partição, usando a chave URL - **```(100%)```**.
+7. Ingestar tabela silver com a última versão de cada categoria, usando a chave URL - **```(100%)```**.
 8. Criar imagem para executar o ETL em um container Docker - **(0%)**.
-9. Integrar projeto para realizar carga das silvers criadas para a Cloud (AWS ou Azure) - **(0%)**.
+9. Integrar projeto para realizar carga das silvers criadas para a Cloud (GCP) - **(0%)**.
 10. Integrar ao projeto um modelo de aprendizado não supervisionado usando o algoritmo KMeans com os dados de produtos - **(0%)**.
 
 ## Dependências
