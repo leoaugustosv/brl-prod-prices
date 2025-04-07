@@ -50,7 +50,7 @@ Demais dependências atualizadas constam no arquivo ```requirements.txt```.
 
 ---
 <details>
-<summary> <b>Documentação de tabelas (clique para expandir)</b>  </summary> 
+<summary> <b><u>Documentação de tabelas</u> (clique para expandir)</b>  </summary> 
 
 ## Sellers
 
@@ -68,6 +68,7 @@ As tabelas são salvas utilizando delta-spark, criando-se na raíz do repositór
 
 #### Produtos (b_prod_prices.b_products)
 
+```Tabela de origem dos produtos extraídos de cada seller.```
 
 | Nome | Tipo | Descrição | Default | Origem
 | --- | --- | --- | --- | ---
@@ -84,19 +85,21 @@ As tabelas são salvas utilizando delta-spark, criando-se na raíz do repositór
 | rating | double | Nota de avaliação do produto | -999 | Web scraping
 | rating_users | int | Quantidade de usuários que avaliaram o produto | 0 | Web scraping
 | position | int | Posição do produto nos mais vendidos da categoria em que se encontra | - | Gerado ao ser ingestado
-| dt_refe_crga | string | Data da ingestão | - | Gerado ao ser ingestado
-| dh_exec | timestamp | Data e hora da ingestão | - | Gerado ao ser ingestado
+| dt_refe_crga | string | Data da ingestão | - | Gerado em tempo de carga
+| dh_exec | timestamp | Data e hora da ingestão | - | Gerado em tempo de carga
 
 **Características**
 
+- **Chaves**: url + dh_exec
 - **Schema**: MergeSchema
 - **Modo de carga**: Append
-- **Partição**: dat_ref_carga
+- **Partição**: dt_refe_crga
 
 ----
 
-#### Sellers (b_prod_prices.b_products)
+#### Sellers (b_prod_prices.b_sellers)
 
+```Tabela de origem dos sellers parametrizados e suas respectivas categorias obtidas.```
 
 | Nome | Tipo | Descrição | Default | Origem
 | --- | --- | --- | --- | ---
@@ -104,19 +107,104 @@ As tabelas são salvas utilizando delta-spark, criando-se na raíz do repositór
 | name | string | Nome do vendedor | - | Arquivo de parâmetros
 | url | array(array(string)) | Links específicos para extração dos produtos e categorias do vendedor | - | Arquivo de parâmetros
 | categories | array(map(string,string)) | Categoria definida pelo próprio e-commerce | - | Web scraping
-| dt_refe_crga | string | Data da ingestão | - | Gerado ao ser ingestado
-| dh_exec | timestamp | Data e hora da ingestão | - | Gerado ao ser ingestado
+| dt_refe_crga | string | Data da ingestão | - | Gerado em tempo de carga
+| dh_exec | timestamp | Data e hora da ingestão | - | Gerado em tempo de carga
 
 **Características**
 
+- **Chaves**: id + dh_exec
 - **Schema**: MergeSchema
 - **Modo de carga**: Overwrite (partição)
-- **Partição**: dat_ref_carga
+- **Partição**: dt_refe_crga
 
 ----
 
-### Silver (s_prod_prices)
+### Silver (s_last_ver_products_table)
 
-**Em construção.**
+```Tabela visão produto. Exibe sempre a última versão de cada produto e suas respectivas informações.```
+
+| Nome | Tipo | Descrição | Default | Origem
+| --- | --- | --- | --- | ---
+| DS_URL | string | URL do produto | - | Gerado na origem
+| ID_ORIGIN | string | Id de ingestão do produto | - | Gerado na origem
+| NM_PRODUCT | string | Nome do produto | - | Gerado na origem
+| DS_IMG | string | Categoria definida pelo próprio e-commerce | - | Gerado na origem
+| DS_CATEGORY | string | Categoria definida pelo próprio e-commerce | - | Gerado na origem
+| VL_CASH | double | Preço à vista | - | Gerado na origem
+| VL_INSTALLMENTS | double | Preço parcelado | - | Gerado na origem
+| NR_INSTALLMENTS | int | Número de parcelas possíveis | - | Gerado na origem
+| VL_SINGLE_INSTALLMENT | double | Valor da parcela | - | Gerado na origem
+| NM_SELLER | string | Nome do e-commerce em que o produto foi extraído | - | Gerado na origem
+| VL_RATING | double | Nota de avaliação do produto | - | Gerado na origem
+| QT_RATING_USERS | int | Quantidade de usuários que avaliaram o produto | - | Gerado na origem
+| NR_POSITION | int | Posição do produto nos mais vendidos da categoria em que se encontra | - | Gerado na origem
+| dt_refe_crga | string | Data da ingestão | - | Gerado em tempo de carga
+| dh_exec | timestamp | Data e hora da ingestão | - | Gerado em tempo de carga
+
+**Características**
+
+- **Chaves**: ID_CATALOG
+- **Schema**: MergeSchema
+- **Modo de carga**: Overwrite (partição)
+- **Partição**: dt_refe_crga
+- **Origem**: b_products
+- **Tipos de carga**: Full
+
+----
+
+
+### Silver (s_catalog_products)
+
+```Tabela visão produto sumarizada. Define um uuid para cada produto já ingestado em algum momento na origem.```
+
+| Nome | Tipo | Descrição | Default | Origem
+| --- | --- | --- | --- | ---
+| ID_ORIGIN | string | Id de ingestão do produto | - | Gerado na origem
+| NM_PRODUCT | string | Nome do produto | - | Gerado na origem
+| DS_URL | string | URL do produto | - | Gerado na origem
+| DS_IMG | string | URL da imagem do produto | - | Gerado na origem
+| ID_CATALOG | string | UUID único do produto | - | Gerado em tempo de carga
+| dt_refe_crga | string | Data da ingestão | - | Gerado em tempo de carga
+| dh_exec | timestamp | Data e hora da ingestão | - | Gerado em tempo de carga
+
+**Características**
+
+- **Chaves**: ID_CATALOG
+- **Schema**: MergeSchema
+- **Modo de carga**: Overwrite (partição)
+- **Partição**: dt_refe_crga
+- **Origem**: b_products
+- **Tipos de carga**: Full
+
+----
+
+### Silver (s_catalog_products)
+
+```Tabela visão categoria-seller. Criada a partir das estruturas de categorias de cada seller na origem.```
+
+| Nome | Tipo | Descrição | Default | Origem
+| --- | --- | --- | --- | ---
+| ID_CATEGORY | string | Id sequencial único para cada categoria | - | Gerado em tempo de carga
+| DS_CATEGORY | string | Descrição da categoria | - | Gerado na origem
+| NM_SELLER | string | Nome do e-commerce em que o produto foi extraído | - | Gerado na origem
+| DS_URL | string | URL da categoria | - | Gerado na origem
+| DH_ORIGIN_EXEC | timestamp | Data e hora da última ingestão da categoria na origem | - | Gerado na origem
+| dt_refe_crga | string | Data da ingestão | - | Gerado em tempo de carga
+| dh_exec | timestamp | Data e hora da ingestão | - | Gerado em tempo de carga
+
+**Características**
+
+- **Chaves**: ID_CATEGORY
+- **Schema**: MergeSchema
+- **Modo de carga**: Overwrite (partição)
+- **Partição**: dt_refe_crga
+- **Origem**: b_products
+- **Tipos de carga**: 
+    - **Full** (total)
+    - **Incremental** (comparativo entre última partição salva VS tempo de execução)
+    
+----
+
+
 
 </details>
