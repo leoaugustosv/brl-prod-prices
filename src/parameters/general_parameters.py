@@ -13,7 +13,7 @@ BRONZE_SELLERS_TABLE = "b_sellers"
 # SILVER
 SILVER_CATALOG_PRODUCTS_TABLE = "s_catalog_products"
 SILVER_LAST_VER_PRODUCTS_TABLE = "s_last_ver_products"
-SILVER_SELLERS_TABLE = "s_sellers"
+SILVER_CATEGORIES_TABLE = "s_categories_catalog"
 
 
 # GENERAL PARAMETERS
