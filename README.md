@@ -54,7 +54,7 @@ Demais dependências atualizadas constam no arquivo ```requirements.txt```.
 
 ## Sellers
 
-### Lista de sellers lidos
+### Lista de sellers lidos (updated: 07/04/25)
 - Zoom
 - Magazine Luiza
 - Mercado Livre
