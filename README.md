@@ -2,6 +2,13 @@
 
 Um ETL de sites de e-commerce brasileiros.
 
+## Sellers
+
+### Lista de sellers lidos (updated: 07/04/25)
+- Zoom
+- Magazine Luiza
+- Mercado Livre
+
 ## Objetivos
 
 1. Extrair informações variadas dos produtos mais vendidos em cada categoria de diferentes e-commerces brasileiros - **```(100%)```**.
@@ -51,13 +58,6 @@ Demais dependências atualizadas constam no arquivo ```requirements.txt```.
 ---
 <details>
 <summary> <b><u>Documentação de tabelas</u> (clique para expandir)</b>  </summary> 
-
-## Sellers
-
-### Lista de sellers lidos (updated: 07/04/25)
-- Zoom
-- Magazine Luiza
-- Mercado Livre
 
 ## Tabelas
 
