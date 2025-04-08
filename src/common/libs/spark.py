@@ -2,7 +2,7 @@ from pyspark.sql import SparkSession
 from pyspark.errors import AnalysisException
 from delta import configure_spark_with_delta_pip
 from delta import DeltaTable as dt
-from parameters.general_parameters import DATABASE_NAME, WAREHOUSE_LOCATION_PARAM, CSV_PATH, PARQUET_PATH
+from common.parameters.common_params import DATABASE_NAME, WAREHOUSE_LOCATION_PARAM, CSV_PATH, PARQUET_PATH
 
 import pyspark.sql.functions as F
 from pyspark.sql.types import StructType
@@ -17,7 +17,7 @@ def get_root_path(starting_path:str = None):
 
     path_limit = 0
 
-    while path_limit < 3:
+    while path_limit < 5:
         if not "rootfile" in os.listdir(current):
             current = os.path.dirname(current)
             path_limit += 1

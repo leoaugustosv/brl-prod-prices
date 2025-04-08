@@ -16,6 +16,5 @@ SILVER_LAST_VER_PRODUCTS_TABLE = "s_last_ver_products"
 SILVER_CATEGORIES_TABLE = "s_categories_catalog"
 
 
-# GENERAL PARAMETERS
-PRODUCTS_LIMIT = 25
+
 

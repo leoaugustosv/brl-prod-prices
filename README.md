@@ -25,6 +25,12 @@ Um ETL de sites de e-commerce brasileiros.
 
 ## Dependências
 
+### Java
+
+- JDK 17
+
+### Python
+
 - Selenium
 - BeautifulSoup4 (bs4)
 - PySpark

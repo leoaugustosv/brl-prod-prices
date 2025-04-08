@@ -1,0 +1,39 @@
+services:
+  persistence:
+    build: 
+      context: .
+      dockerfile: ./persistence/Dockerfile
+    container_name: persistence
+    volumes:
+      - ./metastore_db:/app/metastore_db
+      - ./spark-warehouse:/app/spark-warehouse
+    command: ["tail", "-f", "/dev/null"]
+
+  extractor:
+    build: 
+      context: .
+      dockerfile: ./extractor/Dockerfile
+    container_name: extractor
+    volumes:
+      - ./metastore_db:/app/metastore_db
+      - ./spark-warehouse:/app/spark-warehouse
+      - ./:/app  # To access source code in src
+    depends_on:
+      - persistence
+    environment:
+      - WAREHOUSE_LOCATION_PARAM=/app/spark-warehouse
+
+
+  transformer:
+    build: 
+      context: .
+      dockerfile: ./transformer/Dockerfile
+    container_name: transformer
+    volumes:
+      - ./metastore_db:/app/metastore_db
+      - ./spark-warehouse:/app/spark-warehouse
+      - ./:/app
+    depends_on:
+      - persistence
+    environment:
+      - WAREHOUSE_LOCATION_PARAM=/app/spark-warehouse
