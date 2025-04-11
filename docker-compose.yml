@@ -2,7 +2,7 @@ services:
   persistence:
     build: 
       context: .
-      dockerfile: ./persistence/Dockerfile
+      dockerfile: ./docker/persistence/Dockerfile
     container_name: persistence
     volumes:
       - ./storage:/app/storage
@@ -11,7 +11,7 @@ services:
   extractor:
     build: 
       context: .
-      dockerfile: ./extractor/Dockerfile
+      dockerfile: ./docker/extractor/Dockerfile
     container_name: extractor
     volumes:
       - ./storage:/app/storage
@@ -27,11 +27,10 @@ services:
   transformer:
     build: 
       context: .
-      dockerfile: ./transformer/Dockerfile
+      dockerfile: ./docker/transformer/Dockerfile
     container_name: transformer
     volumes:        
       - ./storage:/app/storage
-      # - ./:/app
     depends_on:
       - persistence
 

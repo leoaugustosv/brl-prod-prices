@@ -92,10 +92,13 @@ def fetch_categories_for_seller(seller):
 
 def get_sellers_products(spark, sellers, limit, fetch_categories = True):
 
+    BRONZE_DB_NAME = METASTORE_INFO["LAYERS"]["BRONZE"]["DATABASE_NAME"]
+    BRONZE_PRODUCTS_TABLE = METASTORE_INFO["LAYERS"]["BRONZE"]["TABLES"]["BRONZE_PRODUCTS_TABLE"]
+
     if fetch_categories:
         fetch_sellers_categories(sellers)
 
-    last_product_df = read_table(spark, f"{DATABASE_NAME}.{BRONZE_PRODUCTS_TABLE}", last_part_only=True, return_empty_df_if_missing=True)
+    last_product_df = read_table(spark, f"{BRONZE_DB_NAME}.{BRONZE_PRODUCTS_TABLE}", last_part_only=True, return_empty_df_if_missing=True)
 
     if last_product_df.isEmpty():
         print(f"There is no Product ID yet. Considering last Product ID as 0.")
@@ -191,7 +194,9 @@ def ingest_products_table(spark, sellers):
     df.show()
 
     try:
-        save_table(spark, df, path=f"{DATABASE_NAME}.{BRONZE_PRODUCTS_TABLE}", partition_column="dt_refe_crga", mode="append", schema_option="merge")
+        BRONZE_DB_NAME = METASTORE_INFO["LAYERS"]["BRONZE"]["DATABASE_NAME"]
+        BRONZE_PRODUCTS_TABLE = METASTORE_INFO["LAYERS"]["BRONZE"]["TABLES"]["BRONZE_PRODUCTS_TABLE"]
+        save_table(spark, df, path=f"{BRONZE_DB_NAME}.{BRONZE_PRODUCTS_TABLE}", partition_column="dt_refe_crga", mode="append", schema_option="merge")
     except Exception as e:
         print("ERROR", e)
 
@@ -229,7 +234,9 @@ def ingest_sellers_table(spark, sellers):
     df.show()
     
     try:
-        save_table(spark, df, path=f"{DATABASE_NAME}.{BRONZE_SELLERS_TABLE}", partition_column="dt_refe_crga", mode="overwrite", schema_option="merge")
+        BRONZE_DB_NAME = METASTORE_INFO["LAYERS"]["BRONZE"]["DATABASE_NAME"]
+        BRONZE_SELLERS_TABLE = METASTORE_INFO["LAYERS"]["BRONZE"]["TABLES"]["BRONZE_SELLERS_TABLE"]
+        save_table(spark, df, path=f"{BRONZE_DB_NAME}.{BRONZE_SELLERS_TABLE}", partition_column="dt_refe_crga", mode="overwrite", schema_option="merge")
     except Exception as e:
         print("ERROR: ", e)
 

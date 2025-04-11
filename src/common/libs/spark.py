@@ -2,7 +2,7 @@ from pyspark.sql import SparkSession
 from pyspark.errors import AnalysisException
 from delta import configure_spark_with_delta_pip
 from delta import DeltaTable as dt
-from common.parameters.common_params import METASTORE_INFO, DATABASE_NAME, WAREHOUSE_LOCATION_PARAM, CSV_PATH, PARQUET_PATH
+from common.parameters.common_params import METASTORE_INFO, WAREHOUSE_LOCATION_PARAM, CSV_PATH, PARQUET_PATH
 
 import pyspark.sql.functions as F
 from pyspark.sql.types import StructType
@@ -20,7 +20,11 @@ def get_root_path(starting_path:str = None):
     
 
 
-def create_spark_session(refresh_tb_locations = False, create_hive_db = True, app_name:str = "default") -> SparkSession:
+def create_spark_session(layer:str = None, create_hive_db = True, app_name:str = "default") -> SparkSession:
+
+    # Defaults to bronze layer if none has been specified
+    if not layer or layer not in list(METASTORE_INFO["LAYERS"].keys()):
+        layer = "BRONZE"
 
     try: 
         # Setting WareHouse Folder
@@ -72,11 +76,9 @@ def create_spark_session(refresh_tb_locations = False, create_hive_db = True, ap
 
         # Creating database to persist infos in Hive Metastore
         if create_hive_db:
-            create_database(spark_session, DATABASE_NAME, warehouse_location)
-        
-        if refresh_tb_locations:
-            refresh_table_locations(spark_session, METASTORE_INFO, f"file:{warehouse_location}")
-
+            db_name = METASTORE_INFO["LAYERS"][layer]["DATABASE_NAME"]
+            create_database(spark_session, db_name, warehouse_location)
+    
         return spark_session
     
     except Exception as e:
@@ -362,23 +364,3 @@ def rename_file(filetype, path, target_file_name, new_name):
             print("ERROR: Permission denied. Unable to rename the file.")
             status = False
     return status
-
-
-
-def refresh_table_locations(spark, metastore_info:dict, location):
-    
-    location = f"{location}/spark-warehouse"
-
-    db_name = metastore_info.get("DATABASE_NAME")
-    tables = []
-
-    for layer, layer_val in metastore_info.get("TABLES").items():
-        for key, val in layer_val.items():
-            tables.append(val)
-    
-    for table in tables:
-        try:
-            spark.sql(f"ALTER TABLE {db_name}.{table} SET LOCATION '{location}/{db_name}.db'")
-            print(f"TB_LOCATION: Table {db_name}.{table} location updated to {location}/{db_name}.db .")
-        except Exception as e:
-            print(f"TB_LOCATION: {e}")

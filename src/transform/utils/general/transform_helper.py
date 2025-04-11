@@ -14,6 +14,10 @@ import pyspark.sql.window as W
 
 def ingest_silver_products_catalog(spark, bronze_path):
 
+    SILVER_DB_NAME = METASTORE_INFO["LAYERS"]["SILVER"]["DATABASE_NAME"]
+    SILVER_CATALOG_PRODUCTS_TABLE = METASTORE_INFO["LAYERS"]["SILVER"]["TABLES"]["SILVER_CATALOG_PRODUCTS_TABLE"]
+
+
     # informative
     schema = StructType([
         StructField("ID_ORIGIN", StringType(), False),
@@ -51,13 +55,17 @@ def ingest_silver_products_catalog(spark, bronze_path):
 
             silver_df.show()
 
-            save_table(spark, silver_df, path=f"{DATABASE_NAME}.{SILVER_CATALOG_PRODUCTS_TABLE}", partition_column="dt_refe_crga", mode="overwrite", schema_option="merge")
+            save_table(spark, silver_df, path=f"{SILVER_DB_NAME}.{SILVER_CATALOG_PRODUCTS_TABLE}", partition_column="dt_refe_crga", mode="overwrite", schema_option="merge")
         except Exception as e:
             print("ERROR: ", e)
             
     return silver_df
 
 def ingest_silver_last_ver_products(spark, bronze_path, ignore_delay = False):
+
+    SILVER_DB_NAME = METASTORE_INFO["LAYERS"]["SILVER"]["DATABASE_NAME"]
+    SILVER_CATALOG_PRODUCTS_TABLE = METASTORE_INFO["LAYERS"]["SILVER"]["TABLES"]["SILVER_CATALOG_PRODUCTS_TABLE"]
+    SILVER_LAST_VER_PRODUCTS_TABLE = METASTORE_INFO["LAYERS"]["SILVER"]["TABLES"]["SILVER_LAST_VER_PRODUCTS_TABLE"]
 
     df = read_table(spark, bronze_path, return_empty_df_if_missing=True)
     
@@ -88,7 +96,7 @@ def ingest_silver_last_ver_products(spark, bronze_path, ignore_delay = False):
             print(f"SILVER: Reading from bronze products table partition {aim_partition}...")
 
             catalog_df = (
-                read_table(spark, path=f"{DATABASE_NAME}.{SILVER_CATALOG_PRODUCTS_TABLE}" ,last_part_only=True, return_empty_df_if_missing=True)
+                read_table(spark, path=f"{SILVER_DB_NAME}.{SILVER_CATALOG_PRODUCTS_TABLE}" ,last_part_only=True, return_empty_df_if_missing=True)
                 .selectExpr(
                     "ID_CATALOG",
                     "DS_URL"
@@ -136,7 +144,7 @@ def ingest_silver_last_ver_products(spark, bronze_path, ignore_delay = False):
 
             silver_df.show()
 
-            save_table(spark, silver_df, path=f"{DATABASE_NAME}.{SILVER_LAST_VER_PRODUCTS_TABLE}", partition_column="dt_refe_crga", mode="overwrite", schema_option="merge")
+            save_table(spark, silver_df, path=f"{SILVER_DB_NAME}.{SILVER_LAST_VER_PRODUCTS_TABLE}", partition_column="dt_refe_crga", mode="overwrite", schema_option="merge")
         except Exception as e:
             print("ERROR: ", e)
 
@@ -146,10 +154,13 @@ def ingest_silver_last_ver_products(spark, bronze_path, ignore_delay = False):
 
 def ingest_silver_categories_catalog(spark, bronze_path, ignore_delay = False, load_type = None):
 
+    SILVER_DB_NAME = METASTORE_INFO["LAYERS"]["SILVER"]["DATABASE_NAME"]
+    SILVER_CATEGORIES_TABLE = METASTORE_INFO["LAYERS"]["SILVER"]["TABLES"]["SILVER_CATEGORIES_TABLE"]
+
     id_window_spec = W.Window.orderBy(F.concat_ws("|",F.col("DS_CATEGORY"),F.col("NM_SELLER")))
     last_ver_window_spec = W.Window.partitionBy(F.col("id")).orderBy(F.col("dh_exec").desc())
     
-    existing_silver_df = (read_table(spark, f"{DATABASE_NAME}.{SILVER_CATEGORIES_TABLE}", return_empty_df_if_missing=True, last_part_only=True))
+    existing_silver_df = (read_table(spark, f"{SILVER_DB_NAME}.{SILVER_CATEGORIES_TABLE}", return_empty_df_if_missing=True, last_part_only=True))
     
 
     if not load_type or load_type not in ("full", "incremental"):
@@ -197,7 +208,7 @@ def ingest_silver_categories_catalog(spark, bronze_path, ignore_delay = False, l
                 .withColumn("dh_exec", F.current_timestamp())
             )
         
-            save_table(spark, silver_df, path=f"{DATABASE_NAME}.{SILVER_CATEGORIES_TABLE}", partition_column="dt_refe_crga", mode="overwrite", schema_option="merge")
+            save_table(spark, silver_df, path=f"{SILVER_DB_NAME}.{SILVER_CATEGORIES_TABLE}", partition_column="dt_refe_crga", mode="overwrite", schema_option="merge")
         except Exception as e:
             print("ERROR: ", e)
 
@@ -276,7 +287,7 @@ def ingest_silver_categories_catalog(spark, bronze_path, ignore_delay = False, l
                     .withColumn("dh_exec", F.current_timestamp())
                 )
             
-            save_table(spark, silver_df, path=f"{DATABASE_NAME}.{SILVER_CATEGORIES_TABLE}", partition_column="dt_refe_crga", mode="overwrite", schema_option="merge")
+            save_table(spark, silver_df, path=f"{SILVER_DB_NAME}.{SILVER_CATEGORIES_TABLE}", partition_column="dt_refe_crga", mode="overwrite", schema_option="merge")
         except Exception as e:
             print("ERROR: ", e)
 

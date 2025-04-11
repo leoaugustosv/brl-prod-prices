@@ -7,12 +7,7 @@ import time
 
 def main():
 
-
-    # sl.init_browser()
-
-    # time.sleep(30)
-
-    spark = create_spark_session()
+    spark = create_spark_session(layer="BRONZE")
 
     seller_instances = get_sellers(sellers_params)
     get_sellers_products(spark, sellers=seller_instances, limit=PRODUCTS_LIMIT, fetch_categories=True)
