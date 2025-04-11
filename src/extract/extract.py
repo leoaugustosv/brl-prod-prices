@@ -3,8 +3,14 @@ from model.sellers_model import *
 from utils.general.extract_helper import *
 from parameters.sellers_parameters import sellers_params, PRODUCTS_LIMIT
 
+import time
+
 def main():
 
+
+    # sl.init_browser()
+
+    # time.sleep(30)
 
     spark = create_spark_session()
 

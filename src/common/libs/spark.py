@@ -2,7 +2,7 @@ from pyspark.sql import SparkSession
 from pyspark.errors import AnalysisException
 from delta import configure_spark_with_delta_pip
 from delta import DeltaTable as dt
-from common.parameters.common_params import DATABASE_NAME, WAREHOUSE_LOCATION_PARAM, CSV_PATH, PARQUET_PATH
+from common.parameters.common_params import METASTORE_INFO, DATABASE_NAME, WAREHOUSE_LOCATION_PARAM, CSV_PATH, PARQUET_PATH
 
 import pyspark.sql.functions as F
 from pyspark.sql.types import StructType
@@ -14,25 +14,17 @@ def get_root_path(starting_path:str = None):
         current = starting_path
     else:
         current = os.getcwd()
+        print("ROOT_PATH: Current path - ", current)
 
-    path_limit = 0
-
-    while path_limit < 5:
-        if not "rootfile" in os.listdir(current):
-            current = os.path.dirname(current)
-            path_limit += 1
-        else:
-            return current
-    raise RuntimeError("ERROR: Unable to find rootpath. Check if rootfile exists.")
+    return current
     
 
 
-def create_spark_session(create_hive_db = True, app_name:str = "default") -> SparkSession:
+def create_spark_session(refresh_tb_locations = False, create_hive_db = True, app_name:str = "default") -> SparkSession:
 
     try: 
         # Setting WareHouse Folder
         if not WAREHOUSE_LOCATION_PARAM:
-
             warehouse_location = f'{get_root_path()}'
         else:
             warehouse_location = WAREHOUSE_LOCATION_PARAM
@@ -80,9 +72,13 @@ def create_spark_session(create_hive_db = True, app_name:str = "default") -> Spa
 
         # Creating database to persist infos in Hive Metastore
         if create_hive_db:
-            create_database(spark_session, DATABASE_NAME)
+            create_database(spark_session, DATABASE_NAME, warehouse_location)
+        
+        if refresh_tb_locations:
+            refresh_table_locations(spark_session, METASTORE_INFO, f"file:{warehouse_location}")
 
         return spark_session
+    
     except Exception as e:
         print(f"SPARK_ERROR: {e}")
 
@@ -165,12 +161,14 @@ def register_table(spark, name, path):
     except Exception as e:
         print(f"Error: {e}")
 
-def create_database(spark, name):
+def create_database(spark, name, warehouse_location):
     try:
         if not spark.sql("SHOW DATABASES").filter(F.col("namespace") == name).isEmpty():
             print(f"DATABASE: Database {name} found.")
+            spark.sql(f"DESCRIBE DATABASE EXTENDED {name};").show(truncate=False)
+            spark.sql(f"SHOW TABLES IN {name}").show()
         else:
-            print(f"DATABASE: Database {name} not found. Creating database in path {get_root_path()}\\spark-warehouse\\{name}.db")
+            print(f"DATABASE: Database {name} not found. Creating database in path {get_root_path()}/{warehouse_location}/spark-warehouse/{name}.db")
             spark.sql(f"create database if not exists {name}")
             print(f"DATABASE: Database {name} created sucessfully.")
     except Exception as e:
@@ -364,3 +362,23 @@ def rename_file(filetype, path, target_file_name, new_name):
             print("ERROR: Permission denied. Unable to rename the file.")
             status = False
     return status
+
+
+
+def refresh_table_locations(spark, metastore_info:dict, location):
+    
+    location = f"{location}/spark-warehouse"
+
+    db_name = metastore_info.get("DATABASE_NAME")
+    tables = []
+
+    for layer, layer_val in metastore_info.get("TABLES").items():
+        for key, val in layer_val.items():
+            tables.append(val)
+    
+    for table in tables:
+        try:
+            spark.sql(f"ALTER TABLE {db_name}.{table} SET LOCATION '{location}/{db_name}.db'")
+            print(f"TB_LOCATION: Table {db_name}.{table} location updated to {location}/{db_name}.db .")
+        except Exception as e:
+            print(f"TB_LOCATION: {e}")
