@@ -1,5 +1,6 @@
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from uuid import uuid4
 
 
 def init_browser(url="about:blank", headless = False):
@@ -13,16 +14,20 @@ def init_browser(url="about:blank", headless = False):
     config_params.add_argument(f'user-agent={user_agent}')
     config_params.add_experimental_option("excludeSwitches", ["enable-automation"])
     config_params.add_experimental_option('useAutomationExtension', False)
-    # config_params.add_argument("--log-level=1")
+    config_params.add_argument("--log-level=1")
     
     # specific args for google-chrome .deb package 
-    config_params.add_argument("--no-sandbox")
     config_params.add_argument("--disable-gpu")
     config_params.add_argument("--disable-default-apps")
     config_params.add_argument("--no-first-run")
     config_params.add_argument("--no-default-browser-check")
     config_params.add_argument("--disable-extensions")
-    config_params.add_argument("--user-data-dir=/tmp/chrome-profile")
+    
+    # required for container environment
+    config_params.add_argument("--no-sandbox")
+    config_params.add_argument('--disable-dev-shm-usage')
+    config_params.add_argument('--disable-software-rasterizer')
+    config_params.add_argument(f'--user-data-dir=/tmp/chrome-profile-{uuid4()}')
 
 
     # service
