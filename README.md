@@ -4,24 +4,37 @@ Um ETL de sites de e-commerce brasileiros.
 
 ## Sellers
 
-### Lista de sellers lidos (updated: 07/04/25)
+### Lista de sellers lidos
+
+**Atualizado em -** ```07/04/2025```
 - Zoom
 - Magazine Luiza
 - Mercado Livre
 
 ## Objetivos
 
-1. Extrair informações variadas dos produtos mais vendidos em cada categoria de diferentes e-commerces brasileiros - **```(100%)```**.
+<details>
+<summary> <b><u>Objetivos previstos e cumpridos</u> (clique para expandir)</b>  </summary> 
+<br/>
 
-2. Transformar as informações extraídas em dataframes com dados relevantes [nome, preço, url, avaliações, etc] - **```(100%)```**.
-3. Ingestar os dataframes obtidos em tabelas delta locais bronze, particionadas por data [Products, Sellers] - **```(100%)```**.
-4. Possibilitar export de partições das tabelas delta para arquivos únicos [ATUALMENTE: CSV, Parquet] - **```(100%)```**.
-5. Ingestar tabela silver com um id único para cada produto, usando a chave URL - **```(100%)```**.
-6. Ingestar tabela silver com a última versão de cada produto por partição, usando a chave URL - **```(100%)```**.
-7. Ingestar tabela silver com a última versão de cada categoria, usando a chave URL - **```(100%)```**.
-8. Criar imagem para executar o ETL em um container Docker - **(0%)**.
-9. Integrar projeto para realizar carga das silvers criadas para a Cloud (GCP) - **(0%)**.
-10. Integrar ao projeto um modelo de aprendizado não supervisionado usando o algoritmo KMeans com os dados de produtos - **(0%)**.
+**Atualizado em -** ```11/04/2025```
+
+1. Extrair informações variadas dos produtos mais vendidos em cada categoria de diferentes e-commerces brasileiros - **```(100%)```**. ✅
+2. Transformar as informações extraídas em dataframes com dados relevantes [nome, preço, url, avaliações, etc] - **```(100%)```**. ✅
+3. Ingestar os dataframes obtidos em tabelas delta locais bronze, particionadas por data [Products, Sellers] - **```(100%)```**. ✅
+4. Possibilitar export de partições das tabelas delta para arquivos únicos [ATUALMENTE: CSV, Parquet] - **```(100%)```**. ✅
+5. Ingestar tabela silver com um id único para cada produto, usando a chave URL - **```(100%)```**. ✅
+6. Ingestar tabela silver com a última versão de cada produto por partição, usando a chave URL - **```(100%)```**. ✅
+7. Ingestar tabela silver com a última versão de cada categoria, usando a chave URL - **```(100%)```**. ✅
+8. Criar imagens para executar o ETL em diferentes containers Docker (armazenamento, extract, transform) - **```(100%)```**. ✅
+9. Otimizar scraping para lidar com poucos recursos e OS instável - **(0%)**. ⏳
+- **OBS:** Aqui a dificuldade está sendo otimizar o script para lidar com hostilidades advindas de usar um display virtual pra scraping no container de extração (descobri que são várias, inclusive).
+10. Integrar projeto com a Cloud (GCP) - **(0%)**. ❌
+- **OBS:** Ainda analisando como será feito e com quais objetivos.
+11. Integrar ao projeto um modelo de aprendizado não supervisionado usando o algoritmo KMeans com os dados de produtos - **(0%)**. ❌
+- **OBS:** Ainda analisando como será feito e com quais objetivos.
+
+</details>
 
 ## Dependências
 
@@ -37,6 +50,10 @@ Um ETL de sites de e-commerce brasileiros.
 - Pandas
 - delta-spark
 
+### Docker
+
+- Docker Desktop
+
 ### Opcional
 
 - ipykernel (Fornece kernel para executar notebooks Jupyter)
@@ -44,6 +61,9 @@ Um ETL de sites de e-commerce brasileiros.
 Demais dependências atualizadas constam no arquivo ```requirements.txt```.
 
 ## Características
+
+<details>
+<summary> <b><u>Características: pros e contras</u> (clique para expandir)</b>  </summary> 
 
 ### Pros
 
@@ -61,11 +81,15 @@ Demais dependências atualizadas constam no arquivo ```requirements.txt```.
 - **Velocidade:** Por simular a ação humana de navegar por cada categoria, aumenta exponencialmente o tempo para extrair os dados conforme o número de categorias que um seller possui.
 - **Processo local**: Por rodar localmente (por enquanto), carece de alta disponibilidade, escalabilidade e outras vantagens que uma núvem pública oferece.
 
----
-<details>
-<summary> <b><u>Documentação de tabelas</u> (clique para expandir)</b>  </summary> 
+
+</details>
+
+
 
 ## Tabelas
+
+<details>
+<summary> <b><u>Documentação de tabelas</u> (clique para expandir)</b>  </summary> 
 
 As tabelas são salvas utilizando delta-spark, criando-se na raíz do repositório um armazenamento Hive Metastore.
 
