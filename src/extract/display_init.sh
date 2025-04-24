@@ -12,7 +12,8 @@ export DISPLAY=:99
 Xvfb -ac :99 -screen 0 1920x1080x24 &
 
 
-# VNC Debugging
+# VNC Debugging (OPTIONAL)
+# ----------------
 sleep 2
 
 echo ">> Starting window manager (fluxbox)..."
@@ -22,9 +23,7 @@ echo ">> Starting VNC server..."
 x11vnc -display :99 -forever -passwd secret -shared -rfbport 5900 &
 
 sleep 2
-
-
-
+# ----------------
 
 
 # Executes the command passed to container
