@@ -1,3 +1,6 @@
+# GLOBAL SELLERS PARAMETERS
+PRODUCTS_LIMIT = 25
+
 sellers_params = [
 
     ## URL value:

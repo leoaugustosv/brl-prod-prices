@@ -1,5 +1,3 @@
-from libs.spark import *
-
 class Seller:
 
     def __init__(self, id, name, url, active, categories=[], products=[]):

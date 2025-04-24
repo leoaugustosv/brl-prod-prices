@@ -1,0 +1,37 @@
+services:
+  persistence:
+    build: 
+      context: .
+      dockerfile: ./docker/persistence/Dockerfile
+    container_name: persistence
+    volumes:
+      - ./storage:/app/storage
+    command: ["tail", "-f", "/dev/null"]
+
+  extractor:
+    build: 
+      context: .
+      dockerfile: ./docker/extractor/Dockerfile
+    container_name: extractor
+    volumes:
+      - ./storage:/app/storage
+    ports:
+      - "5900:5900"
+
+    depends_on:
+      - persistence
+
+    # command: ["tail", "-f", "/dev/null"]
+
+
+  transformer:
+    build: 
+      context: .
+      dockerfile: ./docker/transformer/Dockerfile
+    container_name: transformer
+    volumes:        
+      - ./storage:/app/storage
+    depends_on:
+      - persistence
+
+    # command: ["tail", "-f", "/dev/null"]
