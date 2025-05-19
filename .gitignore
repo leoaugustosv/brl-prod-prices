@@ -4,6 +4,7 @@ venv/
 metastore_db/
 spark-warehouse/
 storage/
+b_prod_prices.db/
 
 # Custom files
 src/bs4_tester.py
