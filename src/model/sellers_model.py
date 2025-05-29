@@ -2,13 +2,14 @@ from libs.spark import *
 
 class Seller:
 
-    def __init__(self, id, name, url, active, categories=[], products=[]):
+    def __init__(self, id, name, url, active, categories=[], products=[], endpoints={}):
         self.id = id
         self.name = name
         self.url = url
         self.categories = categories
         self.active = active
         self.products = products
+        self.endpoints = endpoints
     
     def show_info(self):
         for attr, value in vars(self).items():

@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 import re
 import time
 from model.products_model import *
+from math import floor
 
 seller_name = "MercadoLivre"
 
@@ -161,11 +162,11 @@ def get_product_prices(browser, category_list, product_id, limit:int = None):
                                 )
                             except Exception as e:
                                 # print(f"{seller_name} Product Cards Tag Error (INSTALLMENTS_NUM): {e}")
-                                installments_num = 0
+                                installments_num = 1
 
                         else:
                             installment_value = -999.0
-                            installments_num = 0
+                            installments_num = 1
                         
                         try:
                             url = name_href_component["href"]
@@ -232,7 +233,7 @@ def get_product_prices(browser, category_list, product_id, limit:int = None):
                                     price_in_cash=price_in_cash,
                                     installments_num=installments_num,
                                     installment_value=installment_value,
-                                    price_in_installments=round(installment_value*installments_num,2) if installment_value != -999.0 else None,
+                                    price_in_installments=(floor(price_in_cash / installments_num * 100) / 100) if installment_value != -999.0 else None,
                                     url=url,
                                     img=img,
                                     category=category,

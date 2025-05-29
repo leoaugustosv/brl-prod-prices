@@ -132,7 +132,7 @@ def get_product_prices(browser, category_list, product_id, limit:int = None):
                                 print(f"Installments info len: {installments_info}")
                         else:
                             installment_value = -999.0
-                            installments_num = 0
+                            installments_num = 1
                             price_in_installments = -999.0
                         
                         try:

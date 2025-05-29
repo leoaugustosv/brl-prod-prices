@@ -6,6 +6,7 @@ import libs.selenium as sl
 from utils.sel import zoom as z
 from utils.sel import magalu as mgl
 from utils.sel import mercadolivre as meli
+from utils.sel import kabum as kbm
 
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
@@ -26,19 +27,16 @@ def get_sellers(sellers_list):
     print("\n--- Getting active sellers infos...")
     for seller in sellers_list:
         
-        curr_seller_name = seller.get("name")
-        curr_seller_urls = seller.get("url")
-        curr_seller_id = seller.get("id")
-        curr_seller_categories = seller.get("categories")
         curr_seller_active = seller.get("active")
 
         if curr_seller_active:
             sellers.append(
                 Seller(
-                    id=curr_seller_id,
-                    name=curr_seller_name,
-                    url=curr_seller_urls,
-                    categories=curr_seller_categories,
+                    id=seller.get("id"),
+                    name=seller.get("name"),
+                    url=seller.get("url"),
+                    categories=seller.get("categories"),
+                    endpoints=seller.get("endpoints"),
                     active=curr_seller_active
                     )
                 )
@@ -84,6 +82,8 @@ def fetch_categories_for_seller(seller):
         seller.categories.extend(mgl.get_html_categories(browser, category_url))
     elif seller.name == "MercadoLivre":
         seller.categories.extend(meli.get_html_categories(browser, category_url))
+    elif seller.name == "Kabum":
+        seller.categories.extend(kbm.get_html_categories(browser, category_url))
 
     sl.close_browser(browser=browser)
 
@@ -133,6 +133,8 @@ def fetch_products_for_seller(last_product_id, limit, seller):
                 last_product_id, seller.products = mgl.get_product_prices(browser, seller.categories, last_product_id, limit)
             elif seller.name == "MercadoLivre":
                 last_product_id, seller.products = meli.get_product_prices(browser, seller.categories, last_product_id, limit)
+            elif seller.name == "Kabum":
+                last_product_id, seller.products = kbm.get_product_prices(browser, seller.categories, seller.endpoints, last_product_id, limit)
 
         except Exception as e:
             print(f"ERROR: {e}")

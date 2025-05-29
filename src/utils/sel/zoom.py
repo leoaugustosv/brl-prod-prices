@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 import re
 import time
 from model.products_model import *
+from math import floor
 
 seller_name = "Zoom"
 
@@ -102,7 +103,7 @@ def get_product_prices(browser, category_list, product_id, limit:int = None):
                                 print(f"Installments info len: {installments_info}")
                         else:
                             installment_value = -999.0
-                            installments_num = 0
+                            installments_num = 1
                         
                         try:
                             if product["href"][:1] == "/":
@@ -146,7 +147,7 @@ def get_product_prices(browser, category_list, product_id, limit:int = None):
                                     price_in_cash=price_in_cash,
                                     installments_num=installments_num,
                                     installment_value=installment_value,
-                                    price_in_installments=round(installment_value*installments_num,2) if installment_value != -999.0 else None,
+                                    price_in_installments=(floor(price_in_cash / installments_num * 100) / 100) if installment_value != -999.0 else None,
                                     url=url,
                                     img=img,
                                     category=category,
