@@ -10,6 +10,8 @@ src/bs4_tester.py
 src/temp_query.py
 src/pytester_.py
 src/queries__.ipynb
+*.bkp
+*.drawio
 
 
 # Byte-compiled / optimized / DLL files
