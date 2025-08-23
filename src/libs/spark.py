@@ -1,7 +1,5 @@
 from pyspark.sql import SparkSession
 from pyspark.errors import AnalysisException
-from delta import configure_spark_with_delta_pip
-from delta import DeltaTable as dt
 from parameters.general_parameters import DATABASE_NAME, WAREHOUSE_LOCATION_PARAM, CSV_PATH, PARQUET_PATH
 
 import pyspark.sql.functions as F
@@ -18,7 +16,7 @@ def get_root_path(starting_path:str = None):
     path_limit = 0
 
     while path_limit < 3:
-        if not "rootfile" in os.listdir(current):
+        if "rootfile" not in os.listdir(current):
             current = os.path.dirname(current)
             path_limit += 1
         else:
@@ -53,26 +51,19 @@ def create_spark_session(create_hive_db = True, app_name:str = "default") -> Spa
 
             .config("spark.sql.warehouse.dir", warehouse_location) # Warehouse location
             .config('spark.driver.extraJavaOptions',f'-Dderby.system.home={warehouse_location}')
+            .config("hive.exec.dynamic.partition.mode","nonstrict")
+            # Iceberg V2 catalog
+            .config("spark.jars", "src/jars/iceberg-spark-runtime-3.5_2.13-1.9.2.jar")
+            .config("spark.sql.catalog.hadoop_catalog", "org.apache.iceberg.spark.SparkCatalog")
+            .config("spark.sql.catalog.hadoop_catalog.type", "hadoop")
+            .config("spark.sql.catalog.hadoop_catalog.warehouse", warehouse_location)
             
-            # Enable Delta Spark
-            .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") 
-            .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
-
-            # Force Delta V1 Partitioning
-            .config("spark.sql.sources.partitionOverwriteMode", "dynamic")
-
-            # Enable schema automerge
-            .config("spark.databricks.delta.schema.autoMerge.enabled", "true")
-
-            # Disable appendOnly by default
-            .config("spark.databricks.delta.properties.defaults.appendOnly", "false")
-
-            #Enable Hive
-            .config("spark.sql.catalogImplementation", "hive")
-            .enableHiveSupport()
+            # Hive
+            # .config("spark.sql.catalogImplementation", "hive")
+            # .enableHiveSupport()
         )
 
-        spark_session = configure_spark_with_delta_pip(builder).getOrCreate()
+        spark_session = builder.getOrCreate()
         print(f"SPARK: Spark Session started. Spark Version: {spark_session.version}")
         
         # ERROR for supressing warnings, DEBUG to show warnings
@@ -88,11 +79,10 @@ def create_spark_session(create_hive_db = True, app_name:str = "default") -> Spa
 
 
 
-def read_table(spark, path, last_part_only=False, return_empty_df_if_missing = False):
+def read_table(spark, path, part_name = None, last_part_only=False, return_empty_df_if_missing = False, ):
     try:
-        if last_part_only == True:
+        if last_part_only and part_name:
 
-            part_name = spark.sql(f"DESCRIBE DETAIL {f'{path}'}").selectExpr("partitionColumns").collect()[0][0][0]
             last_part = spark.read.table(path).selectExpr(f"max({part_name})").collect()[0][0]
             
             df = (
@@ -115,25 +105,6 @@ def read_table(spark, path, last_part_only=False, return_empty_df_if_missing = F
  
     return df
 
-
-def read_unregistered_table(spark, path, last_part_only=False, part_name=None):
-
-    if last_part_only == True:
-
-        part_name = spark.sql(f"DESCRIBE DETAIL {f'{path}'}").selectExpr("partitionColumns").collect()[0][0][0]
-        last_part = spark.read.table(path).selectExpr(f"max({part_name})").collect()[0][0]
-        
-        df = (
-            spark.read.format("delta").load(path)
-            .filter(F.col(part_name) == last_part)
-        )
-
-    else:
-        df = (
-            spark.read.format("delta").load(path)
-        )
- 
-    return df
 
 
 def test_spark():
@@ -158,13 +129,6 @@ def clear_table(spark, path):
     print(f"TABLE_OPERATION: All lines from table {path} have been cleared successfully.")
 
 
-def register_table(spark, name, path):
-    try:
-        spark.sql(f"CREATE TABLE {name} USING DELTA LOCATION'{path}'")
-        print(f"TABLE_OPERATION: Table {name} in path {path} registered sucessfully.")
-    except Exception as e:
-        print(f"Error: {e}")
-
 def create_database(spark, name):
     try:
         if not spark.sql("SHOW DATABASES").filter(F.col("namespace") == name).isEmpty():
@@ -187,17 +151,17 @@ def drop_database(spark, name):
 
 def clear_partition(spark, path, target_partition:str = None, last_partition = False):
 
-    if target_partition != None:
+    if target_partition is not None:
         last_partition = False
 
-    if last_partition == True:
+    if last_partition:
         target_partition = None
 
     try:
             part_name = spark.sql(f"DESCRIBE DETAIL {f'{path}'}").selectExpr("partitionColumns").collect()[0][0][0]
 
             if part_name:
-                if last_partition and target_partition == None:
+                if last_partition and target_partition is None:
                     target_partition = spark.read.table(path).selectExpr(f"max({part_name})").collect()[0][0]
 
                 spark.sql(f"delete from {path} where {part_name} = {target_partition}")
@@ -206,63 +170,76 @@ def clear_partition(spark, path, target_partition:str = None, last_partition = F
                 print(f"TABLE_OPERATION: No data has been deleted, as no partition was found for table {path}.")
     except Exception as e:
         print(f"Error: {e}")
-    
 
-def save_table(spark, df, path:str, partition_column:str=None, mode="append", schema_option="merge"):
+
+def create_table(spark, df, path:str, partition_column:str):
     '''
-    Saves a df to specified path as a Delta table.
+    Creates a new Iceberg table. Can only be used for creation (use save_table function to append or overwrite data)
 
     Optional parameters:
-    - partition_column = Column name to use as table partition. If not informed, the table won't be partitioned.
-    - mode = 'append' (DEFAULT), 'overwrite' (Will delete all data from existing table where partitions are present both in table and in df.)
-    - schema_option = 'merge' (DEFAULT), 'overwrite', 'none' (raises exception if schema mismatch)
+    - mode = 'append' (DEFAULT), 'overwrite' (Overwrites partitions covered in df), 'overwrite-full' (Will replace all data from table snapshot)
     '''
-
-    writer = df.write.format("delta").option("delta.appendOnly", "false")
-
-    # Checking if table exists before proceeding
-    if read_table(spark, path, return_empty_df_if_missing=True).isEmpty():
-        print(f"TABLE_OPERATION: Table {path} does not exist yet. Changing to append mode to create table...")
-        mode = "append"
-
-    if mode=="append":
-        writer = writer.mode(mode)
-
-    elif mode=="overwrite":
-        if partition_column:
-            partitions_in_df = list(
-                df.select(partition_column).distinct().toPandas()[partition_column]
-            )
-
-            try:
-                df.createOrReplaceTempView("dataframe")
-                for part in partitions_in_df:
-                    clear_partition(spark, path, target_partition=part)
-                    spark.sql(f"""
-                        INSERT INTO {path}
-                        SELECT * FROM dataframe WHERE {partition_column} = '{part}'
-                    """)
-                print(f"TABLE_OPERATION: Table {mode} saved successfully at {path}. Partitions overwritten: {partitions_in_df}")
-            except Exception as e:
-                print(f"TABLE_OPERATION: SAVE_TABLE ERROR - {e}")
-                
-            return
-            
-    else:
-        raise Exception("Save table mode not supported. Please check supported modes and try again.")    
-
-
-    if schema_option == "merge":
-        writer = writer.option("mergeSchema", "true")
-    elif schema_option == "overwrite":
-        writer = writer.option("overwriteSchema", "true")
-
-
-    if partition_column:
-        writer = writer.partitionBy(partition_column)
-
     try:
-        writer.saveAsTable(path)
+
+        df.createOrReplaceTempView("temp_df")
+
+        other_cols = [col for col in df.columns if col != partition_column]
+        other_cols_str = ", ".join(other_cols)
+
+        spark.sql(f"""
+            CREATE TABLE {path}
+            USING iceberg
+            PARTITIONED BY (days({partition_column}))
+            AS
+            SELECT
+                to_date({partition_column}, 'yyyy-MM-dd') as {partition_column},
+                {other_cols_str}
+            FROM temp_df
+        """)
+        spark.catalog.dropTempView("temp_df")
+        print(f"TABLE_OPERATION: Table created successfully at {path}.")
+        return True
+    except Exception as e:
+        print(f"TABLE_OPERATION: CREATE TABLE {path} ERROR - {e}")
+        return False
+
+
+
+def save_table(spark, df, path:str, partition_column:str, mode="append"):
+    '''
+    Saves a df to specified path as an Iceberg table.
+
+    Optional parameters:
+    - mode = 'append' (DEFAULT), 'overwrite' (Overwrites partitions covered in df), 'overwrite-full' (Will replace all data from table snapshot)
+    '''
+    try:
+        
+        # Checking if table exists before proceeding
+        if read_table(spark, path, return_empty_df_if_missing=True).isEmpty():
+            print(f"TABLE_OPERATION: Table {path} does not exist yet. Attempting to create new table...")
+            if create_table(spark, df, path, partition_column):
+                mode = "append"
+            else:
+                return
+            
+        writer = (
+            df
+            .withColumn(partition_column, F.to_date(F.col(partition_column), "yyyy-MM-dd"))
+            .writeTo(path)
+        )
+
+        if mode=="append":
+            writer.append()
+
+        elif mode=="overwrite":
+            writer.overwritePartitions()
+
+        elif mode=="overwrite-full":
+            writer.overwritePartitions().option("overwrite-mode", "dynamic")
+                
+        else:
+            raise Exception("Save table mode not supported. Please check supported modes and try again.")    
+
         print(f"TABLE_OPERATION: Table {mode} saved successfully at {path}.")
     except Exception as e:
         print(f"TABLE_OPERATION: SAVE_TABLE ERROR - {e}")
