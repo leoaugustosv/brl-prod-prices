@@ -1,6 +1,7 @@
 
 import functools
-from model.sellers_model import *
+from libs.spark import read_table, save_table
+from model.sellers_model import Seller
 import libs.selenium as sl
 
 from utils.sel import zoom as z
@@ -10,13 +11,12 @@ from utils.sel import kabum as kbm
 
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
-import uuid
 
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DoubleType, ArrayType, MapType
 import pyspark.sql.functions as F
 import pyspark.sql.window as W
 
-from parameters.general_parameters import *
+from parameters.general_parameters import BRONZE_PRODUCTS_TABLE,BRONZE_SELLERS_TABLE,DATABASE_NAME,SILVER_CATALOG_PRODUCTS_TABLE,SILVER_CATEGORIES_TABLE,SILVER_LAST_VER_PRODUCTS_TABLE
 
 
 
@@ -97,10 +97,10 @@ def get_sellers_products(spark, sellers, limit, fetch_categories = True):
     if fetch_categories:
         fetch_sellers_categories(sellers)
 
-    last_product_df = read_table(spark, f"{DATABASE_NAME}.{BRONZE_PRODUCTS_TABLE}", last_part_only=True, return_empty_df_if_missing=True)
+    last_product_df = read_table(spark, f"hadoop_catalog.{DATABASE_NAME}.{BRONZE_PRODUCTS_TABLE}", part_name="dt_refe_crga", last_part_only=True, return_empty_df_if_missing=True)
 
     if last_product_df.isEmpty():
-        print(f"There is no Product ID yet. Considering last Product ID as 0.")
+        print("There is no Product ID yet. Considering last Product ID as 0.")
         last_product_id = 0
     else:
         last_product_df = last_product_df.selectExpr("id").withColumn("id", F.col("id").cast('int')).orderBy(F.col("id").desc())
@@ -194,7 +194,7 @@ def ingest_products_table(spark, sellers):
     df.show()
 
     try:
-        save_table(spark, df, path=f"{DATABASE_NAME}.{BRONZE_PRODUCTS_TABLE}", partition_column="dt_refe_crga", mode="append", schema_option="merge")
+        save_table(spark, df, path=f"hadoop_catalog.{DATABASE_NAME}.{BRONZE_PRODUCTS_TABLE}", partition_column="dt_refe_crga", mode="append")
     except Exception as e:
         print("ERROR", e)
 
@@ -232,7 +232,7 @@ def ingest_sellers_table(spark, sellers):
     df.show()
     
     try:
-        save_table(spark, df, path=f"{DATABASE_NAME}.{BRONZE_SELLERS_TABLE}", partition_column="dt_refe_crga", mode="overwrite", schema_option="merge")
+        save_table(spark, df, path=f"hadoop_catalog.{DATABASE_NAME}.{BRONZE_SELLERS_TABLE}", partition_column="dt_refe_crga", mode="overwrite")
     except Exception as e:
         print("ERROR: ", e)
 
@@ -250,7 +250,7 @@ def ingest_silver_products_catalog(spark, bronze_path):
         StructField("ID_CATALOG", StringType(), True),
     ])
 
-    bronze_df = read_table(spark, bronze_path, last_part_only=False, return_empty_df_if_missing=True)
+    bronze_df = read_table(spark, bronze_path, part_name="dt_refe_crga", last_part_only=False, return_empty_df_if_missing=True)
 
     if bronze_df.isEmpty():
         print(f"SILVER: No partition found for table {bronze_path}. Aborting products catalog silver ingestion...")
@@ -278,7 +278,7 @@ def ingest_silver_products_catalog(spark, bronze_path):
 
             silver_df.show()
 
-            save_table(spark, silver_df, path=f"{DATABASE_NAME}.{SILVER_CATALOG_PRODUCTS_TABLE}", partition_column="dt_refe_crga", mode="overwrite", schema_option="merge")
+            save_table(spark, silver_df, path=f"hadoop_catalog.{DATABASE_NAME}.{SILVER_CATALOG_PRODUCTS_TABLE}", partition_column="dt_refe_crga", mode="overwrite")
         except Exception as e:
             print("ERROR: ", e)
             
@@ -288,7 +288,7 @@ def ingest_silver_products_catalog(spark, bronze_path):
 
 def ingest_silver_last_ver_products(spark, bronze_path, ignore_delay = False):
 
-    df = read_table(spark, bronze_path, return_empty_df_if_missing=True)
+    df = read_table(spark, bronze_path, part_name="dt_refe_crga", return_empty_df_if_missing=True)
     
 
     if df.isEmpty():
@@ -299,7 +299,7 @@ def ingest_silver_last_ver_products(spark, bronze_path, ignore_delay = False):
         try:
             window_spec = W.Window.partitionBy(F.col("url")).orderBy(F.col("dh_exec").desc())
 
-            part_name = spark.sql(f"DESCRIBE DETAIL {f'{bronze_path}'}").selectExpr("partitionColumns").collect()[0][0][0]
+            part_name = "dt_refe_crga"
             last_parts = spark.read.table(bronze_path).selectExpr(f"max({part_name})").collect()[0]
 
 
@@ -317,7 +317,7 @@ def ingest_silver_last_ver_products(spark, bronze_path, ignore_delay = False):
             print(f"SILVER: Reading from bronze products table partition {aim_partition}...")
 
             catalog_df = (
-                read_table(spark, path=f"{DATABASE_NAME}.{SILVER_CATALOG_PRODUCTS_TABLE}" ,last_part_only=True, return_empty_df_if_missing=True)
+                read_table(spark, path=f"hadoop_catalog.{DATABASE_NAME}.{SILVER_CATALOG_PRODUCTS_TABLE}",part_name="dt_refe_crga", last_part_only=True, return_empty_df_if_missing=True)
                 .selectExpr(
                     "ID_CATALOG",
                     "DS_URL"
@@ -365,11 +365,12 @@ def ingest_silver_last_ver_products(spark, bronze_path, ignore_delay = False):
 
             silver_df.show()
 
-            save_table(spark, silver_df, path=f"{DATABASE_NAME}.{SILVER_LAST_VER_PRODUCTS_TABLE}", partition_column="dt_refe_crga", mode="overwrite", schema_option="merge")
+            save_table(spark, silver_df, path=f"hadoop_catalog.{DATABASE_NAME}.{SILVER_LAST_VER_PRODUCTS_TABLE}", partition_column="dt_refe_crga", mode="overwrite")
+            return silver_df
         except Exception as e:
             print("ERROR: ", e)
 
-        return silver_df
+        
     
 
 
@@ -378,7 +379,7 @@ def ingest_silver_categories_catalog(spark, bronze_path, ignore_delay = False, l
     id_window_spec = W.Window.orderBy(F.concat_ws("|",F.col("DS_CATEGORY"),F.col("NM_SELLER")))
     last_ver_window_spec = W.Window.partitionBy(F.col("id")).orderBy(F.col("dh_exec").desc())
     
-    existing_silver_df = (read_table(spark, f"{DATABASE_NAME}.{SILVER_CATEGORIES_TABLE}", return_empty_df_if_missing=True, last_part_only=True))
+    existing_silver_df = (read_table(spark, f"hadoop_catalog.{DATABASE_NAME}.{SILVER_CATEGORIES_TABLE}", part_name="dt_refe_crga", return_empty_df_if_missing=True, last_part_only=True))
     
 
     if not load_type or load_type not in ("full", "incremental"):
@@ -388,13 +389,13 @@ def ingest_silver_categories_catalog(spark, bronze_path, ignore_delay = False, l
     if load_type == "full":
         try:
             
-            df = read_table(spark, bronze_path, return_empty_df_if_missing=True, last_part_only=False)
+            df = read_table(spark, bronze_path, part_name="dt_refe_crga", return_empty_df_if_missing=True, last_part_only=False)
 
             if df.isEmpty():
                 print(f"SILVER: No partition found for table {bronze_path}. Aborting categories silver ingestion...")
                 return
 
-            print(f"SILVER: FULL LOAD - Reading all bronze sellers table partitions. All existing IDs (if any) will be overridden...")
+            print("SILVER: FULL LOAD - Reading all bronze sellers table partitions. All existing IDs (if any) will be overridden...")
 
             silver_df = (
                 df
@@ -426,7 +427,8 @@ def ingest_silver_categories_catalog(spark, bronze_path, ignore_delay = False, l
                 .withColumn("dh_exec", F.current_timestamp())
             )
         
-            save_table(spark, silver_df, path=f"{DATABASE_NAME}.{SILVER_CATEGORIES_TABLE}", partition_column="dt_refe_crga", mode="overwrite", schema_option="merge")
+            save_table(spark, silver_df, path=f"hadoop_catalog.{DATABASE_NAME}.{SILVER_CATEGORIES_TABLE}", partition_column="dt_refe_crga", mode="overwrite")
+            return silver_df
         except Exception as e:
             print("ERROR: ", e)
 
@@ -434,9 +436,9 @@ def ingest_silver_categories_catalog(spark, bronze_path, ignore_delay = False, l
     elif load_type=="incremental":
 
         try:
-            df = read_table(spark, bronze_path, return_empty_df_if_missing=True, last_part_only=False)
+            df = read_table(spark, bronze_path, part_name="dt_refe_crga", return_empty_df_if_missing=True, last_part_only=False)
 
-            part_name = spark.sql(f"DESCRIBE DETAIL {f'{bronze_path}'}").selectExpr("partitionColumns").collect()[0][0][0]
+            part_name = "dt_refe_crga"
             last_parts = spark.read.table(bronze_path).selectExpr(f"max({part_name})").collect()[0]
 
 
@@ -505,8 +507,9 @@ def ingest_silver_categories_catalog(spark, bronze_path, ignore_delay = False, l
                     .withColumn("dh_exec", F.current_timestamp())
                 )
             
-            save_table(spark, silver_df, path=f"{DATABASE_NAME}.{SILVER_CATEGORIES_TABLE}", partition_column="dt_refe_crga", mode="overwrite", schema_option="merge")
+            save_table(spark, silver_df, path=f"hadoop_catalog.{DATABASE_NAME}.{SILVER_CATEGORIES_TABLE}", partition_column="dt_refe_crga", mode="overwrite")
+            return silver_df
         except Exception as e:
             print("ERROR: ", e)
 
-        return silver_df
+        

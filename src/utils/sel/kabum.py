@@ -4,7 +4,7 @@ from selenium.webdriver.common.keys import Keys
 from bs4 import BeautifulSoup
 import re
 import time
-from model.products_model import *
+from model.products_model import Product
 from math import floor
 
 seller_name = "Kabum"

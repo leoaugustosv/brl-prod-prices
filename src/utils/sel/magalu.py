@@ -2,7 +2,7 @@ from selenium.webdriver.common.by import By
 from bs4 import BeautifulSoup
 import re
 import time
-from model.products_model import *
+from model.products_model import Product
 
 seller_name = "Magalu"
 

@@ -4,10 +4,11 @@ Um ETL de sites de e-commerce brasileiros.
 
 ## Sellers
 
-### Lista de sellers lidos (updated: 07/04/25)
+### Lista de sellers lidos (updated: 23/08/25)
 - Zoom
 - Magazine Luiza
 - Mercado Livre
+- Kabum
 
 ## Objetivos
 
@@ -19,17 +20,21 @@ Um ETL de sites de e-commerce brasileiros.
 5. Ingestar tabela silver com um id único para cada produto, usando a chave URL - **```(100%)```**.
 6. Ingestar tabela silver com a última versão de cada produto por partição, usando a chave URL - **```(100%)```**.
 7. Ingestar tabela silver com a última versão de cada categoria, usando a chave URL - **```(100%)```**.
-8. Criar imagem para executar o ETL em um container Docker - **(0%)**.
-9. Integrar projeto para realizar carga das silvers criadas para a Cloud (GCP) - **(0%)**.
-10. Integrar ao projeto um modelo de aprendizado não supervisionado usando o algoritmo KMeans com os dados de produtos - **(0%)**.
+8. Criar imagem para executar o ETL em um container Docker - **```(100%)```**.
+9. Integrar ETL com arquitetura Cloud - **(0%)**.
+
 
 ## Dependências
 
+### Java
+- JDK 17
+
+### Python
 - Selenium
 - BeautifulSoup4 (bs4)
 - PySpark
 - Pandas
-- delta-spark
+
 
 ### Opcional
 
