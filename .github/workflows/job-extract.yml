@@ -1,0 +1,17 @@
+name: Prices Extraction
+run-name: Prices Extraction ${{github.run_number}} (${{github.event_name}})
+on: push
+jobs:
+  Get-Current-Date:
+      runs-on: ubuntu-latest
+      steps:
+        - name: Get current date variable (UTC)
+          run: echo "NOW_UTC=$(date -u '+%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_ENV
+
+        - name: Format current date as BRT
+          run: echo "NOW_BRT=$(date -u -d '-3 hours' '+%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_ENV
+
+        - name: Print date variables
+          run: |
+            echo "Hello. This run occurred on $NOW_UTC (UTC)."
+            echo "In BRT (UTC-3), it occurred on $NOW_BRT."
