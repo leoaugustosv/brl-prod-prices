@@ -1,5 +1,5 @@
-name: Prices Extraction
-run-name: Prices Extraction ${{github.run_number}} (${{github.event_name}})
+name: 1- Prices Extraction
+run-name: Prices Extraction - ${{github.run_number}} (${{github.event_name}})
 on: push
 jobs:
   Get-Current-Date:
